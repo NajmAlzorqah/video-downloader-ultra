@@ -18,6 +18,33 @@ the same list.
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 </p>
 
+## Demo
+
+<p align="center">
+  <video src=".github/assets/demo.mp4" width="720" controls>
+    Your browser does not support the video tag.
+  </video>
+</p>
+
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center">
+      <img src=".github/assets/popup.png" alt="Browser extension popup showing video probe results, quality selector, and download button" width="320" />
+      <br /><sub><b>Extension popup</b> — probe a video, pick quality, download</sub>
+    </td>
+    <td align="center">
+      <img src=".github/assets/omarchy-widget.png" alt="Omarchy bar widget showing live download progress with cancel and resume controls" width="320" />
+      <br /><sub><b>Bar widget</b> — live progress in the Omarchy panel</sub>
+    </td>
+    <td align="center">
+      <img src=".github/assets/options.png" alt="Options page with default output directory, playlist, chapter, and subtitle settings" width="320" />
+      <br /><sub><b>Options</b> — defaults for output dir, playlists, chapters, subtitles</sub>
+    </td>
+  </tr>
+</table>
+
 ## What it does
 
 - **One entry per resolution the video has**, highest first, with the best
