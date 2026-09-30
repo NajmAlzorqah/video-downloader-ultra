@@ -93,6 +93,12 @@ strip_flags() {
 if [[ -n "$EXT_DIR" ]]; then
   for name in "${FLAGS_CONFS[@]}"; do
     strip_flags "$HOME/.config/$name-flags.conf"
+    if [[ "$EXT_DIR" == */app ]]; then
+      orig_ext="$EXT_DIR"
+      EXT_DIR="${EXT_DIR%/app}"
+      strip_flags "$HOME/.config/$name-flags.conf"
+      EXT_DIR="$orig_ext"
+    fi
   done
 else
   echo "warn  no extension_dir recorded — nothing to strip from flags confs"

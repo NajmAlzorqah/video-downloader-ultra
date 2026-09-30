@@ -18,7 +18,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST="$ROOT/host/video-downloader-ultra-host"
-EXT_DIR="$ROOT/extension"
+EXT_DIR="$ROOT/extension/app"
 MANIFEST="$EXT_DIR/manifest.json"
 NATIVE_TPL="$ROOT/host/com.najmalzorqah.video_downloader_ultra.json.tpl"
 MANIFEST_NAME="com.najmalzorqah.video_downloader_ultra.json"
@@ -62,7 +62,7 @@ command -v python3 >/dev/null 2>&1 || { echo "error: missing python3" >&2; exit 
 chmod +x "$HOST"
 
 # ------------------------------------------------------------------ extension id
-# The id is pinned by the SPKI `key` baked into extension/manifest.json (no
+# The id is pinned by the SPKI `key` baked into extension/app/manifest.json (no
 # private key involved - a new key would change the id and break
 # allowed_origins). Derived the same way Chromium does it:
 #   sha256(SPKI DER) first 16 bytes, hex digits mapped 0-f -> a-p.
@@ -114,7 +114,11 @@ home = os.environ.get("HOME", "")
 def is_other_vdu(p):
     if p == ext:
         return False
+    if ext == os.path.join(p, "app"):
+        return True
     m = os.path.join(p, "manifest.json")
+    if not os.path.isfile(m):
+        m = os.path.join(p, "app", "manifest.json")
     if not os.path.isfile(m):
         return False
     try:

@@ -22,20 +22,20 @@ Omarchy theme via the host's read-only `theme` action).
 | `Panel.qml` | bar-widget: shared queue monitor + first-click setup pane (installs the browser side until the marker exists) |
 | `Client.js` `Formats.js` `Defaults.js` | widget JS (agent-socket client, probe-option helpers ported from `popup.js`) |
 | `Osd.qml` `OsdModel.js` | panel kind: stacked title-over-bar progress OSD (derived from stock `omarchy.osd`, MIT; see CREDITS.md) |
-| `extension/` | MV3 extension (no build step; loaded unpacked from the installed plugin's `extension/`) |
-| `extension/manifest.json` | static, committed — its SPKI `key` pins the extension id (no private key exists) |
-| `extension/background-7.js` | owns the native port (drops it when idle — ~300ms after the last host reply so a request's follow-up `queue` broadcast always lands before the close — letting the shim exit + the SW can suspend; re-adopts the agent's queue after an unexpected drop), routes messages + the download queue, 200s probe timeout, ~4s `theme` cache (filename is versioned — see Gotchas) |
-| `extension/theme.js` | resolves the host's raw `theme` payload into CSS variables on `:root`; on `getTheme` failure it does **not** re-apply a palette — it labels the header's connection state `offline`/`reload needed` and records the reason in `data-theme-error` |
-| `extension/controls.js` | decorates native selects/checkboxes (custom dropdown + pill toggle) without touching `popup.js`/`options.js` logic |
-| `extension/defaults.js` | single canonical `DEFAULTS` map shared by `popup.js` and `options.js` (both write the same `chrome.storage.local` namespace — a second copy is how default values drift between pages) |
-| `extension/theme.css` | shared Omarchy design-system layer; `:root` holds the **single** Solitude fallback palette (first-paint/no-JS guard) plus layout tokens |
-| `extension/popup.{html,js,css}` | main UI; `popup.js` is the big file (~815 lines) |
-| `extension/options.{html,js,css}` | defaults via `chrome.storage.local` |
+| `extension/app/` | MV3 extension (no build step; loaded unpacked from the installed plugin's `extension/app/`) |
+| `extension/app/manifest.json` | static, committed — its SPKI `key` pins the extension id (no private key exists) |
+| `extension/app/background-7.js` | owns the native port (drops it when idle — ~300ms after the last host reply so a request's follow-up `queue` broadcast always lands before the close — letting the shim exit + the SW can suspend; re-adopts the agent's queue after an unexpected drop), routes messages + the download queue, 200s probe timeout, ~4s `theme` cache (filename is versioned — see Gotchas) |
+| `extension/app/theme.js` | resolves the host's raw `theme` payload into CSS variables on `:root`; on `getTheme` failure it does **not** re-apply a palette — it labels the header's connection state `offline`/`reload needed` and records the reason in `data-theme-error` |
+| `extension/app/controls.js` | decorates native selects/checkboxes (custom dropdown + pill toggle) without touching `popup.js`/`options.js` logic |
+| `extension/app/defaults.js` | single canonical `DEFAULTS` map shared by `popup.js` and `options.js` (both write the same `chrome.storage.local` namespace — a second copy is how default values drift between pages) |
+| `extension/app/theme.css` | shared Omarchy design-system layer; `:root` holds the **single** Solitude fallback palette (first-paint/no-JS guard) plus layout tokens |
+| `extension/app/popup.{html,js,css}` | main UI; `popup.js` is the big file (~815 lines) |
+| `extension/app/options.{html,js,css}` | defaults via `chrome.storage.local` |
 | `host/video-downloader-ultra-host` | single-file stdlib-only Python host with two modes: the default **shim** serves the browser's 4-byte LE length-prefixed JSON on stdio by relaying it to the JSON-lines **agent** daemon over a unix socket; `--agent` runs the long-lived daemon that owns the shared queue (see "Shared queue daemon") |
 | `host/com.najmalzorqah.video_downloader_ultra.json.tpl` | NativeMessagingHosts manifest template (`@@HOST_PATH@@`, `@@EXT_ORIGIN@@`) |
 | `host/browsers.sh` | single source of browser coverage for `install.sh`/`uninstall.sh`: canonical roots + conservative discovery (only registers a non-canonical Chromium-family root whose flags conf already exists — never invents paths) |
 | `install.sh` / `uninstall.sh` | register/deregister the browser side in the ten Chromium-family profiles; install.sh writes the marker the widget reads and arms the removal watcher; uninstall.sh is marker-driven (acts on `installed.json`, not its own dir — the state-dir copy install.sh refreshes is what the watcher runs) |
-| `tools/make-icons.py` | regenerates `extension/icons/*.png` |
+| `tools/make-icons.py` | regenerates `extension/app/icons/*.png` |
 | `tools/perf-check.sh` | samples agent/shim/quickshell RSS + CPU over a window, or counts `najmalzorqah.video-downloader-ultra.osd` "show" spawns — the measurement tool behind the OSD/theme perf fixes (see Commands) |
 | `~/.config/omarchy/plugins/najmalzorqah.video-downloader-ultra/` | the installed clone of this repo (git-managed by `omarchy plugin add`; never edit in place — commit upstream and `omarchy plugin update`) |
 
@@ -146,7 +146,7 @@ shell.toml` machine overlay) and replies without ever invoking yt-dlp.
 
 ## Gotchas
 
-- **Never edit `extension/manifest.json`** — it is static and committed; its
+- **Never edit `extension/app/manifest.json`** — it is static and committed; its
   SPKI `key` pins the extension id (`sha256(spki)` → first 16 bytes hex-mapped
   `0-f→a-p`, derived identically inside `install.sh`). No private key exists.
 - **Never regenerate or delete the key/SPKI**: a new key = new id = mismatched

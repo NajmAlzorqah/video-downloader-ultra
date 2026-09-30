@@ -6,7 +6,7 @@ touching changes what review will ask of you.
 - **The plugin.** QML that runs inside the Quickshell process drawing the bar
   widget and the download OSD. The root of this repository *is* the plugin, so a
   clone is already a working install.
-- **The extension**, under `extension/`. MV3, no build step, loaded unpacked.
+- **The extension**, under `extension/app/`. MV3, no build step, loaded unpacked.
 - **The host**, `host/video-downloader-ultra-host`. A single-file stdlib-only Python program
   in two parts: the shim the browser's native-messaging port talks to, and the
   long-lived agent daemon that owns the download queue.
@@ -89,12 +89,12 @@ fact rather than with more code:
 - Stock `omarchy.osd` owns every system OSD (volume, brightness, media, monitor).
   This project drives its own `najmalzorqah.video-downloader-ultra.osd` panel kind and must never claim the
   system target or add `omarchy.clonedFrom` to the manifest.
-- `extension/manifest.json` is **static and committed**; its SPKI `key` pins the
+- `extension/app/manifest.json` is **static and committed**; its SPKI `key` pins the
   extension id. Never regenerate it or change the key — a new key means a new id,
   mismatched `allowed_origins`, and a dead host. No private key exists anywhere.
 - Service workers are cached per filename, so a service-worker change means
   bumping `background-N.js` **and** the `background` field of
-  `extension/manifest.json` together.
+  `extension/app/manifest.json` together.
 - Omarchy OSD and notification integration is a version-dependent contract;
   re-verify it after any Omarchy update.
 

@@ -11,7 +11,7 @@ import tempfile
 import shutil
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-OUT = ROOT / "extension" / "icons"
+OUT = ROOT / "extension" / "app" / "icons"
 ACCENT = "#B5562F"
 
 SVG_CONTENT = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="128" height="128">
