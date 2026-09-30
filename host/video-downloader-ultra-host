@@ -46,6 +46,7 @@ import itertools
 import fcntl
 import select
 import signal
+import atexit
 from urllib.parse import urlparse
 
 HOST_NAME = "com.najmalzorqah.video_downloader_ultra"
@@ -68,6 +69,7 @@ AGENT_SOCK_DIR = (os.environ.get("XDG_RUNTIME_DIR")
                   or os.path.expanduser("~/.local/state"))
 AGENT_SOCK_DIR = os.path.join(AGENT_SOCK_DIR, "najmalzorqah.video-downloader-ultra")
 AGENT_SOCK_PATH = os.path.join(AGENT_SOCK_DIR, "agent.sock")
+AGENT_PID_PATH = os.path.join(AGENT_SOCK_DIR, "agent.pid")
 AGENT_MAX_CLIENTS = 8
 AGENT_IDLE_S = 120.0
 AGENT_SPAWN_WAIT_S = 8.0
@@ -1542,6 +1544,17 @@ def _download_worker(job):
 
 # ------------------------------------------------------------------- main ---
 
+def cleanup_agent():
+    try:
+        os.unlink(AGENT_SOCK_PATH)
+    except OSError:
+        pass
+    try:
+        os.unlink(AGENT_PID_PATH)
+    except OSError:
+        pass
+
+
 def bind_agent_socket():
     """Create/lock the agent unix socket. Returns the listening socket, or
     None when another agent is already serving (callers exit quietly).
@@ -1565,11 +1578,21 @@ def bind_agent_socket():
         os.unlink(AGENT_SOCK_PATH)
     except OSError:
         pass
+    try:
+        os.unlink(AGENT_PID_PATH)
+    except OSError:
+        pass
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(AGENT_SOCK_PATH)
     os.chmod(AGENT_SOCK_PATH, 0o600)
     sock.listen(AGENT_MAX_CLIENTS)
     sock.setblocking(True)
+    try:
+        with open(AGENT_PID_PATH, "w") as f:
+            f.write("%d\n" % os.getpid())
+        os.chmod(AGENT_PID_PATH, 0o600)
+    except OSError:
+        pass
     return sock
 
 
@@ -1858,6 +1881,31 @@ def agent_main():
     sock = bind_agent_socket()
     if sock is None:
         return
+
+    def handle_sigterm(signum, frame):
+        with STATE_LOCK:
+            proc = current_proc
+            lproc = lock_proc
+        if proc is not None:
+            try:
+                proc.terminate()
+            except OSError:
+                pass
+        if lproc is not None:
+            try:
+                lproc.terminate()
+            except OSError:
+                pass
+        cleanup_agent()
+        os._exit(0)
+
+    try:
+        signal.signal(signal.SIGTERM, handle_sigterm)
+        signal.signal(signal.SIGINT, handle_sigterm)
+    except ValueError:
+        pass
+    atexit.register(cleanup_agent)
+
     requests = queue.Queue()
 
     def accept_loop():
@@ -1898,6 +1946,7 @@ def agent_main():
             if n_clients or busy or working:
                 quiet_since = time.monotonic()
             elif time.monotonic() - quiet_since >= AGENT_IDLE_S:
+                cleanup_agent()
                 os._exit(0)
 
     threading.Thread(target=watchdog, daemon=True).start()

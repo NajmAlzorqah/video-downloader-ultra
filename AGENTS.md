@@ -371,8 +371,9 @@ the plugin. The removal/update contract keeps a reinstall **guaranteed fresh**:
 - **Marker-driven uninstall.** `uninstall.sh` no longer sources
   `host/browsers.sh`; it strips exactly the recorded `extension_dir` from each
   recorded flags conf, removes the recorded NativeMessagingHosts manifests,
-  **process-group-kills** the agent (it runs `start_new_session=True` and has no
-  SIGTERM handler — killing just it would orphan the child yt-dlp), removes both
+  safely terminates the verified agent daemon and active child download workers
+  (verifying executable identity and owned agent lock/PID in the runtime dirs
+  so unrelated processes are never selected or killed), removes both
   runtime dirs, disarms the watcher, and deletes the marker + its own state-dir
   copy. It therefore runs identically from the clone, a checkout, or the state
   copy (which is what survives the plugin's removal). Downloads are untouched.

@@ -143,8 +143,8 @@ tools/omarchy-remove.sh  # the same, plus the plugin itself
 `uninstall.sh` is marker-driven: it acts on what `install.sh` recorded rather
 than on its own location, and removes exactly that: the native host manifests,
 the extension path from `--load-extension=` in the recorded flags confs (edited
-in place, so other tools' entries survive), the yt-dlp agent as a whole process
-group so a mid-download yt-dlp is not orphaned, both runtime dirs, the removal
+in place, so other tools' entries survive), the verified yt-dlp agent and active
+download workers so a mid-download yt-dlp is not orphaned, both runtime dirs, the removal
 watcher, and the marker. Downloads are untouched, and `./install.sh` brings it
 all back.
 
