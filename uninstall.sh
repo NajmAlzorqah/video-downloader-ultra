@@ -287,8 +287,12 @@ for p in verified:
         is_leader = False
         pgid = None
 
-    # Step 1: Send SIGTERM
+    # Step 1: Send SIGCONT (to unpause any stopped workers) then SIGTERM
     if is_leader and pgid is not None:
+        try:
+            os.killpg(pgid, signal.SIGCONT)
+        except OSError:
+            pass
         try:
             os.killpg(pgid, signal.SIGTERM)
         except OSError:
@@ -296,9 +300,17 @@ for p in verified:
     else:
         for d in descendants:
             try:
+                os.kill(d, signal.SIGCONT)
+            except OSError:
+                pass
+            try:
                 os.kill(d, signal.SIGTERM)
             except OSError:
                 pass
+        try:
+            os.kill(p, signal.SIGCONT)
+        except OSError:
+            pass
         try:
             os.kill(p, signal.SIGTERM)
         except OSError:
@@ -332,15 +344,78 @@ PY
 rm -rf "${XDG_RUNTIME_DIR:-$HOME/.local/state}/najmalzorqah.video-downloader-ultra" "$HOME/.local/state/najmalzorqah.video-downloader-ultra"
 
 # -------------------------------------------------------- watcher teardown
-# Uninstall disarms the path watcher it armed: stop/disable before deleting
-# unit files, then reload. Explicitly not run through a failing verifier — the
-# whole block is best-effort so uninstall still succeeds without systemd.
+# Uninstall disarms the path watcher it armed: verify unit ownership and lack
+# of foreign drop-ins before stopping/disabling and deleting unit files.
 if systemctl --user show-environment >/dev/null 2>&1; then
-  systemctl --user stop najmalzorqah.video-downloader-ultra-watch.path 2>/dev/null || true
-  systemctl --user disable najmalzorqah.video-downloader-ultra-watch.path 2>/dev/null || true
-  rm -f "$HOME/.config/systemd/user/najmalzorqah.video-downloader-ultra-watch.path" \
-        "$HOME/.config/systemd/user/najmalzorqah.video-downloader-ultra-cleanup.service"
-  systemctl --user daemon-reload 2>/dev/null || true
+  UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+  CLEANUP_SERVICE="$UNIT_DIR/najmalzorqah.video-downloader-ultra-cleanup.service"
+  WATCH_PATH="$UNIT_DIR/najmalzorqah.video-downloader-ultra-watch.path"
+  SIGNATURE="# Managed by najmalzorqah.video-downloader-ultra"
+
+  can_teardown_watcher=1
+
+  # Check drop-in configuration on disk
+  for dropin_dir in "$CLEANUP_SERVICE.d" "$WATCH_PATH.d"; do
+    if [ -d "$dropin_dir" ] && [ -n "$(ls -A "$dropin_dir" 2>/dev/null || true)" ]; then
+      echo "warn     preserving watcher units: custom drop-ins found in $dropin_dir"
+      can_teardown_watcher=0
+      break
+    fi
+  done
+
+  # Inspect loaded unit state via systemctl
+  if [ "$can_teardown_watcher" = 1 ]; then
+    for unit_name in "najmalzorqah.video-downloader-ultra-cleanup.service" "najmalzorqah.video-downloader-ultra-watch.path"; do
+      loaded_info=$(systemctl --user show -p FragmentPath,DropInPaths "$unit_name" 2>/dev/null || true)
+      dropins=$(echo "$loaded_info" | grep '^DropInPaths=' | cut -d= -f2- || true)
+      if [ -n "$dropins" ]; then
+        echo "warn     preserving watcher units: $unit_name has active drop-ins: $dropins"
+        can_teardown_watcher=0
+        break
+      fi
+      fragment=$(echo "$loaded_info" | grep '^FragmentPath=' | cut -d= -f2- || true)
+      if [ -n "$fragment" ]; then
+        frag_real=$(realpath -m "$fragment" 2>/dev/null || echo "$fragment")
+        unit_real=$(realpath -m "$UNIT_DIR/$unit_name" 2>/dev/null || echo "$UNIT_DIR/$unit_name")
+        if [ "$frag_real" != "$unit_real" ] && [ "$fragment" != "$UNIT_DIR/$unit_name" ]; then
+          echo "warn     preserving foreign unit: $unit_name is loaded from $fragment"
+          can_teardown_watcher=0
+          break
+        fi
+      fi
+    done
+  fi
+
+  # Check existing files on disk for ownership signature / expected content
+  if [ "$can_teardown_watcher" = 1 ]; then
+    if [ -f "$CLEANUP_SERVICE" ]; then
+      if ! grep -Fq "$SIGNATURE" "$CLEANUP_SERVICE" 2>/dev/null && \
+         ! grep -Fq "najmalzorqah.video-downloader-ultra/uninstall.sh --if-plugin-gone" "$CLEANUP_SERVICE" 2>/dev/null; then
+        echo "warn     preserving foreign unit file: $CLEANUP_SERVICE does not belong to this plugin"
+        can_teardown_watcher=0
+      fi
+    fi
+    if [ -f "$WATCH_PATH" ]; then
+      if ! grep -Fq "$SIGNATURE" "$WATCH_PATH" 2>/dev/null && \
+         ! grep -Fq "najmalzorqah.video-downloader-ultra-cleanup.service" "$WATCH_PATH" 2>/dev/null; then
+        echo "warn     preserving foreign unit file: $WATCH_PATH does not belong to this plugin"
+        can_teardown_watcher=0
+      fi
+    fi
+  fi
+
+  if [ "$can_teardown_watcher" = 1 ]; then
+    systemctl --user stop najmalzorqah.video-downloader-ultra-watch.path 2>/dev/null || true
+    systemctl --user disable najmalzorqah.video-downloader-ultra-watch.path 2>/dev/null || true
+    rm -f "$WATCH_PATH" "$CLEANUP_SERVICE"
+    if [ -n "${XDG_CONFIG_HOME:-}" ] && [ "$UNIT_DIR" != "$HOME/.config/systemd/user" ]; then
+      rm -f "$HOME/.config/systemd/user/najmalzorqah.video-downloader-ultra-watch.path" \
+            "$HOME/.config/systemd/user/najmalzorqah.video-downloader-ultra-cleanup.service"
+    fi
+    systemctl --user daemon-reload 2>/dev/null || true
+  else
+    echo "warn     watcher teardown skipped to protect foreign/custom systemd configuration"
+  fi
 fi
 
 # ------------------------------------------------ marker + state copy gone

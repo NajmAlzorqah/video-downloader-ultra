@@ -266,9 +266,67 @@ echo "marker -> $MARKER"
 cp "$ROOT/uninstall.sh" "$STATE_DIR/uninstall.sh"
 chmod +x "$STATE_DIR/uninstall.sh"
 if systemctl --user show-environment >/dev/null 2>&1; then
-  UNIT_DIR="$HOME/.config/systemd/user"
+  UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
   mkdir -p "$UNIT_DIR"
-  cat > "$UNIT_DIR/najmalzorqah.video-downloader-ultra-cleanup.service" <<EOF
+  CLEANUP_SERVICE="$UNIT_DIR/najmalzorqah.video-downloader-ultra-cleanup.service"
+  WATCH_PATH="$UNIT_DIR/najmalzorqah.video-downloader-ultra-watch.path"
+  SIGNATURE="# Managed by najmalzorqah.video-downloader-ultra"
+
+  can_install_watcher=1
+
+  # Check drop-in configuration on disk
+  for dropin_dir in "$CLEANUP_SERVICE.d" "$WATCH_PATH.d"; do
+    if [ -d "$dropin_dir" ] && [ -n "$(ls -A "$dropin_dir" 2>/dev/null || true)" ]; then
+      echo "warn     refusing to overwrite watcher units: custom drop-ins found in $dropin_dir"
+      can_install_watcher=0
+      break
+    fi
+  done
+
+  # Inspect loaded unit state via systemctl if known to systemd
+  if [ "$can_install_watcher" = 1 ]; then
+    for unit_name in "najmalzorqah.video-downloader-ultra-cleanup.service" "najmalzorqah.video-downloader-ultra-watch.path"; do
+      loaded_info=$(systemctl --user show -p FragmentPath,DropInPaths "$unit_name" 2>/dev/null || true)
+      dropins=$(echo "$loaded_info" | grep '^DropInPaths=' | cut -d= -f2- || true)
+      if [ -n "$dropins" ]; then
+        echo "warn     refusing to overwrite watcher units: $unit_name has active drop-ins: $dropins"
+        can_install_watcher=0
+        break
+      fi
+      fragment=$(echo "$loaded_info" | grep '^FragmentPath=' | cut -d= -f2- || true)
+      if [ -n "$fragment" ]; then
+        frag_real=$(realpath -m "$fragment" 2>/dev/null || echo "$fragment")
+        unit_real=$(realpath -m "$UNIT_DIR/$unit_name" 2>/dev/null || echo "$UNIT_DIR/$unit_name")
+        if [ "$frag_real" != "$unit_real" ] && [ "$fragment" != "$UNIT_DIR/$unit_name" ]; then
+          echo "warn     refusing to overwrite foreign unit: $unit_name is loaded from $fragment"
+          can_install_watcher=0
+          break
+        fi
+      fi
+    done
+  fi
+
+  # Check existing files on disk for ownership signature / expected content
+  if [ "$can_install_watcher" = 1 ]; then
+    if [ -f "$CLEANUP_SERVICE" ]; then
+      if ! grep -Fq "$SIGNATURE" "$CLEANUP_SERVICE" 2>/dev/null && \
+         ! grep -Fq "najmalzorqah.video-downloader-ultra/uninstall.sh --if-plugin-gone" "$CLEANUP_SERVICE" 2>/dev/null; then
+        echo "warn     refusing to overwrite foreign unit file: $CLEANUP_SERVICE does not belong to this plugin"
+        can_install_watcher=0
+      fi
+    fi
+    if [ -f "$WATCH_PATH" ]; then
+      if ! grep -Fq "$SIGNATURE" "$WATCH_PATH" 2>/dev/null && \
+         ! grep -Fq "najmalzorqah.video-downloader-ultra-cleanup.service" "$WATCH_PATH" 2>/dev/null; then
+        echo "warn     refusing to overwrite foreign unit file: $WATCH_PATH does not belong to this plugin"
+        can_install_watcher=0
+      fi
+    fi
+  fi
+
+  if [ "$can_install_watcher" = 1 ]; then
+    cat > "$CLEANUP_SERVICE" <<EOF
+$SIGNATURE
 [Unit]
 Description=Clean up Video Downloader Ultra browser side when the plugin clone is removed
 
@@ -276,7 +334,8 @@ Description=Clean up Video Downloader Ultra browser side when the plugin clone i
 Type=oneshot
 ExecStart=%h/.local/state/najmalzorqah.video-downloader-ultra/uninstall.sh --if-plugin-gone
 EOF
-  cat > "$UNIT_DIR/najmalzorqah.video-downloader-ultra-watch.path" <<EOF
+    cat > "$WATCH_PATH" <<EOF
+$SIGNATURE
 [Unit]
 Description=Watch the Omarchy plugins dir for Video Downloader Ultra removal
 
@@ -287,12 +346,15 @@ Unit=najmalzorqah.video-downloader-ultra-cleanup.service
 [Install]
 WantedBy=default.target
 EOF
-  if systemctl --user daemon-reload >/dev/null 2>&1 &&
-     systemctl --user enable --now najmalzorqah.video-downloader-ultra-watch.path >/dev/null 2>&1; then
-    echo "watcher  -> omarchy plugin remove now uninstalls the browser side too"
+    if systemctl --user daemon-reload >/dev/null 2>&1 &&
+       systemctl --user enable --now najmalzorqah.video-downloader-ultra-watch.path >/dev/null 2>&1; then
+      echo "watcher  -> omarchy plugin remove now uninstalls the browser side too"
+    else
+      echo "warn     could not arm the systemd path watcher — a plugin removal"
+      echo "         won't auto-unregister the browser side; uninstall.sh still works"
+    fi
   else
-    echo "warn     could not arm the systemd path watcher — a plugin removal"
-    echo "         won't auto-unregister the browser side; uninstall.sh still works"
+    echo "warn     watcher unit arming skipped to protect foreign/custom systemd configuration"
   fi
 else
   echo "warn     systemd user manager not running — a plugin removal won't"

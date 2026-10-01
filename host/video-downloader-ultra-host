@@ -1888,10 +1888,18 @@ def agent_main():
             lproc = lock_proc
         if proc is not None:
             try:
+                os.kill(proc.pid, signal.SIGCONT)
+            except OSError:
+                pass
+            try:
                 proc.terminate()
             except OSError:
                 pass
         if lproc is not None:
+            try:
+                os.kill(lproc.pid, signal.SIGCONT)
+            except OSError:
+                pass
             try:
                 lproc.terminate()
             except OSError:
