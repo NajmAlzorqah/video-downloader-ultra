@@ -5,6 +5,7 @@
   "version": "1.1.0",
   "author": "Najm",
   "license": "MIT",
+  "icon": "icon.png",
   "description": "yt-dlp downloads with a shared queue, browser extension + native host, and a live progress OSD. The plugin mirrors the download queue from the Video Downloader Ultra browser extension; the first click installs the extension and host into your Chromium-family browsers.",
   "kinds": ["bar-widget", "panel"],
   "entryPoints": {

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="128" height="128">
+  <!-- Top datum rail with centered ingress opening -->
+  <path d="M 4 7 L 12 7" stroke="#B5562F" stroke-width="2.2" stroke-linecap="round" fill="none" />
+  <path d="M 20 7 L 28 7" stroke="#B5562F" stroke-width="2.2" stroke-linecap="round" fill="none" />
+  
+  <!-- Downward media stream vector -->
+  <line x1="16" y1="4" x2="16" y2="20" stroke="#B5562F" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M 10 14 L 16 20 L 22 14" stroke="#B5562F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  
+  <!-- Baseline buffer tray with architectural vertical stops -->
+  <path d="M 5 24 L 5 28 L 27 28 L 27 24" stroke="#B5562F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>
